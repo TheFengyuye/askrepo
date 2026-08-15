@@ -360,7 +360,9 @@ askrepo/
 | expressjs/express (v5) | **10/10 = 100%** | golden 校准到 v5 仓库内可回答的问题（v5 将 router/query/404 拆到外部 npm 包，仓库 `lib/` 仅 6 个文件） |
 | AskRepo 自身（dogfood） | **8/8 = 100%** | 自索引自评测，「用 AskRepo 理解 AskRepo」 |
 | samples/demo-lib（本地冒烟） | **4/4 = 100%** | 最小验证 |
-| vitejs/vite（中型 TS） | 待验证 | 2457 文件大仓库 |
+| prettier/prettier（中型 TS） | 待验证 | 替代 vite：vite 2457 文件在 CPU-only 环境嵌入过慢（2h 仅 93 文件），prettier ~250 文件更贴合「中型」定位且速度可控 |
+
+> 备注：vite 的教训直接指向 M3 的**增量索引**——当前 `add` 是全量重建，中断即丢失进度。这是已知产品缺陷，M3 必修。
 
 ### 检索质量调优历程（真实踩坑，简历素材）
 
@@ -371,3 +373,12 @@ askrepo/
 3. **辅助文件排除**：`test/`/`examples/`/`History.md` 等不进关键词路径——「X 在哪实现」的答案不在测试里（向量路径仍以低权重覆盖它们）。
 4. **文件多样性上限**：同一文件最多 2 个 chunk 进入结果，避免单文件霸榜。
 5. **golden 校准**（重要教训）：express v5 已把 router/query 拆到外部包，最初 60% 的评测问题在仓库内**不存在答案**——评测集必须基于仓库真实内容，否则数字毫无意义。
+
+## 15. M2 状态（Web 产品化）
+
+- [x] Next.js 16 全栈（App Router + Turbopack），页面：仓库列表/详情、问答（SSE 流式）、设置
+- [x] API：`/api/repos`（增删查）、`/api/query`（SSE：keywords → delta 流 → done[citations/evidence]）、`/api/feedback`、`/api/repos/[id]/file`（内置文件查看器）
+- [x] SSE 全链路验证：中文问题 → 改写 → 混合检索 → 流式回答 → 引用解析（含 `[file:start-end]` 区间格式）→ 前端可点击查看源码
+- [x] 反馈闭环入库（questions.rating + feedback 表）
+- 简化决策：M2 索引用**进程内异步任务**（`src/server/queue.ts`），BullMQ+Redis 推迟到 M3（多 worker/跨进程时再上）
+- 已知待办：索引进度前端不可见（无轮询）；增量索引（M3）；PostgreSQL 迁移（M3）

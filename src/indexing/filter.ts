@@ -7,6 +7,12 @@ const SKIP_DIRS = new Set([
   '.next', '.nuxt', '.venv', '__pycache__', '.idea', '.vscode', '.cache',
   'target', 'bin', 'obj', 'minified', 'static/vendor', 'site-packages',
   'data', // AskRepo's own data dir (cloned repos + db)
+  // Test/example/fixture dirs are NOT indexed: consistent with retrieval
+  // (which de-prioritizes aux files), and they dominate file counts in big
+  // OSS repos (prettier 7380 files → ~1000 after this), making indexing
+  // an order of magnitude faster.
+  'test', 'tests', '__tests__', 'spec', 'e2e', 'examples', 'example',
+  'benchmarks', 'benchmark', 'fixtures', 'website', 'playground',
 ]);
 
 const SKIP_FILES = new Set([

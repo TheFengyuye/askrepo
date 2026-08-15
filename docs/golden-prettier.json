@@ -1,0 +1,12 @@
+[
+  { "question": "prettier 的入口文件是哪个？", "files": ["src/index.js"] },
+  { "question": "CLI 命令的入口在哪里？", "files": ["src/cli/index.js"] },
+  { "question": "格式化核心流程（core）在哪个文件？", "files": ["src/main/core.js"] },
+  { "question": "AST 转 doc 的逻辑在哪里？", "files": ["src/main/ast-to-doc.js"] },
+  { "question": "代码解析（parse）的入口在哪里？", "files": ["src/main/parse.js"] },
+  { "question": "多语言嵌入式代码分派（multiparser）在哪？", "files": ["src/main/multiparser.js"] },
+  { "question": "doc 构建器（builders）在哪个文件？", "files": ["src/document/builders/index.js"] },
+  { "question": "prettier 配置读取（config）逻辑在哪？", "files": ["src/config/prettier-config/index.js"] },
+  { "question": "JS 的 babel 解析器入口在哪？", "files": ["src/language-js/parse/babel.js"] },
+  { "question": "JS 打印器（printers）在哪里注册？", "files": ["src/language-js/printers.js"] }
+]
