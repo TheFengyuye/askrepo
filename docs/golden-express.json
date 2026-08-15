@@ -1,0 +1,12 @@
+[
+  { "question": "请求进来后是如何被路由分发的？", "files": ["lib/router/index.js", "lib/router/layer.js"] },
+  { "question": "express 应用对象是怎么创建和初始化的？", "files": ["lib/application.js"] },
+  { "question": "app.use 注册的中间件在请求时是怎么被逐个调用的？", "files": ["lib/router/index.js", "lib/application.js"] },
+  { "question": "没有匹配到路由时的 404 处理逻辑在哪里？", "files": ["lib/application.js"] },
+  { "question": "查询字符串（query string）的解析是在哪里做的？", "files": ["lib/middleware/query.js"] },
+  { "question": "res.json 方法是怎么实现的？", "files": ["lib/response.js"] },
+  { "question": "带四个参数的错误处理中间件是怎么被识别和调用的？", "files": ["lib/router/layer.js"] },
+  { "question": "路由参数（如 :id）的匹配逻辑在哪个文件？", "files": ["lib/router/layer.js"] },
+  { "question": "视图渲染（view engine）相关的逻辑在哪里？", "files": ["lib/view.js", "lib/application.js"] },
+  { "question": "请求对象 req 是在哪一步被扩展出额外属性的？", "files": ["lib/request.js", "lib/middleware/init.js"] }
+]

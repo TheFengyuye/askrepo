@@ -1,0 +1,4 @@
+[
+  { "question": "isOdd 函数的核心实现在哪里？", "files": ["index.js"] },
+  { "question": "这个包的 npm 入口（main）指向哪个文件？", "files": ["package.json"] }
+]
