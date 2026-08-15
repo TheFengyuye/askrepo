@@ -352,3 +352,22 @@ askrepo/
 4. **M1 验收基准仓库**：`expressjs/express` + 一个中型 TypeScript 开源项目（候选：`eslint/eslint`、`vitejs/vite`）+ 一个自己写的项目 ✅
 5. **推进方式**：小步快跑——M1 先出可运行 CLI 最小闭环，用评测集验证检索质量（最大风险），通过后再进入 M2 Web 化
 6. **M1 存储适配（工程决策）**：本机无 Docker/PostgreSQL，M1 用 SQLite（Node 内置 `node:sqlite`）+ FTS5 关键词 + 内存精确余弦向量检索（M1 仓库规模完全够），存储层独立封装为接口，M2 切 PostgreSQL+pgvector。**最终架构不变**，只是 M1 的存储实现不同。
+
+## 14. M1 验证结果（检索质量）
+
+| 仓库 | 命中率 (top-8) | 说明 |
+|---|---|---|
+| expressjs/express (v5) | **10/10 = 100%** | golden 校准到 v5 仓库内可回答的问题（v5 将 router/query/404 拆到外部 npm 包，仓库 `lib/` 仅 6 个文件） |
+| samples/demo-lib（本地冒烟） | **4/4 = 100%** | 最小验证 |
+| AskRepo 自身（dogfood） | 待验证 | 第三个验收仓库 |
+| vitejs/vite（中型 TS） | 待验证 | 2457 文件大仓库 |
+
+### 检索质量调优历程（真实踩坑，简历素材）
+
+初版检索命中率仅 **20%**，经诊断和四轮改进到 **100%**：
+
+1. **查询改写（Query Rewriting）**：中文问题对 FTS 是零 token（token 化只认拉丁字符）→ 用 LLM 把问题改写为英文代码标识符（`dispatch`/`parseurl`/`app.use`...）。改写的最大坑：LLM 默认输出中文关键词，需强制「只输出英文代码标识符」。
+2. **IDF 加权覆盖率排序**：纯 FTS bm25 被冗长的测试文件/CHANGELOG 霸榜（test/ 占候选池 80%）→ 以「命中的稀有 token 的 IDF 和」排序，实现文件靠 `dispatch` 这类稀有符号胜出。
+3. **辅助文件排除**：`test/`/`examples/`/`History.md` 等不进关键词路径——「X 在哪实现」的答案不在测试里（向量路径仍以低权重覆盖它们）。
+4. **文件多样性上限**：同一文件最多 2 个 chunk 进入结果，避免单文件霸榜。
+5. **golden 校准**（重要教训）：express v5 已把 router/query 拆到外部包，最初 60% 的评测问题在仓库内**不存在答案**——评测集必须基于仓库真实内容，否则数字毫无意义。

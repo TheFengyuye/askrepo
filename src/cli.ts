@@ -3,7 +3,7 @@ import { indexRepository } from './indexing/indexer.js';
 import { hybridSearch } from './retrieval/search.js';
 import { rewriteQuestion } from './retrieval/rewrite.js';
 import { generateAnswer } from './answer.js';
-import { resolveRepo } from './repo.js';
+import { resolveRepo, removeRepo } from './repo.js';
 import { runEval } from './eval.js';
 import { getConfig } from './config.js';
 
@@ -93,6 +93,14 @@ async function main(): Promise<void> {
         );
         console.log(`    ${h.content.slice(0, 120).replace(/\n/g, ' ')}`);
       });
+      break;
+    }
+
+    case 'remove': {
+      const repoRef = args[0];
+      if (!repoRef) usage();
+      const repo = removeRepo(repoRef);
+      console.log(`Removed ${repo.name} and all its data.`);
       break;
     }
 

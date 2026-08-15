@@ -7,9 +7,16 @@ const execFileAsync = promisify(execFile);
 
 export function repoNameFromUrl(url: string): string {
   const clean = url.replace(/\.git$/, '').replace(/[/\\]+$/, '');
+  const isLocal =
+    /^[a-zA-Z]:[\\/]/.test(clean) || // drive letter (Windows path)
+    clean.startsWith('.') ||
+    clean.startsWith('/') ||
+    clean.startsWith('\\') ||
+    clean.includes('\\'); // backslash anywhere → Windows path
   const parts = clean.split(/[/\\]/);
-  const owner = parts[parts.length - 2] ?? 'unknown';
   const repo = parts[parts.length - 1] ?? 'unknown';
+  if (isLocal) return repo; // local paths: use the folder name only
+  const owner = parts[parts.length - 2] ?? 'unknown';
   return `${owner}/${repo}`;
 }
 
