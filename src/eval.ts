@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { resolveRepo } from './repo.js';
 import { hybridSearch } from './retrieval/search.js';
+import { rewriteQuestion } from './retrieval/rewrite.js';
 import { generateAnswer } from './answer.js';
 
 export interface GoldenItem {
@@ -30,12 +31,25 @@ export async function runEval(repoRef: string, goldenFile: string, opts: EvalOpt
   const items = JSON.parse(fs.readFileSync(goldenFile, 'utf8')) as GoldenItem[];
   console.log(`Running ${items.length} eval questions on ${repo.name} (mode=${opts.mode}, topK=${opts.topK})\n`);
 
+  let rewriting = false;
+  try {
+    await rewriteQuestion('probe'); // will throw when DEEPSEEK_API_KEY missing
+    rewriting = true;
+  } catch {
+    rewriting = false;
+  }
+  if (!rewriting) {
+    console.log('⚠  DEEPSEEK_API_KEY not set — running WITHOUT query rewriting (expected hit rate will be lower).\n');
+  }
+
   let retrievalHits = 0;
   let citationHits = 0;
   for (const item of items) {
-    const evidence = await hybridSearch(repo.id, item.question, opts.topK);
+    const keywords = rewriting ? await rewriteQuestion(item.question) : undefined;
+    const evidence = await hybridSearch(repo.id, item.question, opts.topK, { keywords });
     const retrievedPaths = evidence.map((h) => h.path);
     const retrievalHit = item.files.some((f) => pathMatch(f, retrievedPaths));
+    if (keywords) console.log(`   keywords: ${keywords.slice(0, 140)}`);
 
     let citations: { file: string; line: number | null }[] = [];
     if (opts.mode === 'answer') {

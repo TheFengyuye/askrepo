@@ -6,6 +6,7 @@ const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'dist', 'build', 'out', 'coverage', 'vendor',
   '.next', '.nuxt', '.venv', '__pycache__', '.idea', '.vscode', '.cache',
   'target', 'bin', 'obj', 'minified', 'static/vendor', 'site-packages',
+  'data', // AskRepo's own data dir (cloned repos + db)
 ]);
 
 const SKIP_FILES = new Set([

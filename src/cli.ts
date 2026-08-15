@@ -1,6 +1,7 @@
 import { getDb } from './storage/db.js';
 import { indexRepository } from './indexing/indexer.js';
 import { hybridSearch } from './retrieval/search.js';
+import { rewriteQuestion } from './retrieval/rewrite.js';
 import { generateAnswer } from './answer.js';
 import { resolveRepo } from './repo.js';
 import { runEval } from './eval.js';
@@ -65,7 +66,8 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       console.log(`\nQ: ${question}\n`);
-      const evidence = await hybridSearch(repo.id, question, 8);
+      const keywords = await rewriteQuestion(question);
+      const evidence = await hybridSearch(repo.id, question, 8, { keywords });
       const { answer, citations, latencyMs } = await generateAnswer(question, evidence);
       console.log(answer);
       console.log(`\n— cited ${citations.length} grounded locations (${latencyMs}ms)`);

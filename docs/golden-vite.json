@@ -1,0 +1,12 @@
+[
+  { "question": "vite 开发服务器的启动入口在哪里？", "files": ["packages/vite/src/node/server/index.ts"] },
+  { "question": "模块热更新（HMR）的核心实现在哪个文件？", "files": ["packages/vite/src/node/server/hmr.ts"] },
+  { "question": "依赖预构建（optimize deps）的逻辑在哪里？", "files": ["packages/vite/src/node/optimizer/index.ts"] },
+  { "question": "静态资源（assets）处理插件在哪个文件？", "files": ["packages/vite/src/node/plugins/asset.ts"] },
+  { "question": "CSS 处理插件在哪里？", "files": ["packages/vite/src/node/plugins/css.ts"] },
+  { "question": "vite.config 配置文件是怎么加载和解析的？", "files": ["packages/vite/src/node/config.ts"] },
+  { "question": "transform 请求（模块转换）在哪里处理？", "files": ["packages/vite/src/node/server/transformRequest.ts"] },
+  { "question": "路径解析（resolve）插件的逻辑在哪个文件？", "files": ["packages/vite/src/node/plugins/resolve.ts"] },
+  { "question": "浏览器端 HMR 客户端连接在哪个文件建立？", "files": ["packages/vite/src/client/client.ts"] },
+  { "question": "生产构建（build）的入口在哪里？", "files": ["packages/vite/src/node/build.ts"] }
+]

@@ -1,0 +1,6 @@
+[
+  { "question": "square 函数在哪个文件？", "files": ["src/math.ts"] },
+  { "question": "calculate 函数是怎么实现的？", "files": ["src/index.ts"] },
+  { "question": "这个库导出了哪些函数？", "files": ["src/math.ts", "src/index.ts"] },
+  { "question": "精度处理 precision 相关代码在哪里？", "files": ["src/index.ts"] }
+]

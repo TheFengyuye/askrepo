@@ -1,0 +1,10 @@
+[
+  { "question": "AskRepo 的混合检索（hybrid search）是怎么实现的？", "files": ["src/retrieval/search.ts"] },
+  { "question": "查询改写（query rewriting）调用的是什么模型？", "files": ["src/retrieval/rewrite.ts"] },
+  { "question": "代码 chunk 是怎么切的？", "files": ["src/indexing/chunk.ts"] },
+  { "question": "嵌入向量（embedding）存在哪里？", "files": ["src/storage/db.ts"] },
+  { "question": "CLI 的命令入口在哪个文件？", "files": ["src/cli.ts"] },
+  { "question": "评测的命中率是怎么计算的？", "files": ["src/eval.ts"] },
+  { "question": "本地嵌入模型用的是什么？", "files": ["src/indexing/embed.ts"] },
+  { "question": "索引管道（indexing pipeline）的流程是怎样的？", "files": ["src/indexing/indexer.ts"] }
+]
