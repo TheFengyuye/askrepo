@@ -1,6 +1,6 @@
-import type { Hit } from './retrieval/vectors.js';
-import { DeepSeekProvider } from './llm/deepseek.js';
-import type { LLMProvider } from './llm/provider.js';
+import type { Hit } from './retrieval/vectors';
+import { DeepSeekProvider } from './llm/deepseek';
+import type { LLMProvider } from './llm/provider';
 
 export interface Citation {
   file: string;
@@ -13,15 +13,11 @@ export interface AnswerResult {
   latencyMs: number;
 }
 
-const CITE_RE = /\[([^\[\]\s:]+)(?::(\d+))?\]/g;
+/** Matches [file], [file:line], and [file:start-end] citation forms. */
+const CITE_RE = /\[([^\[\]\s:]+)(?::(\d+)(?:-\d+)?)?\]/g;
 
-/** Grounded answer generation: evidence → LLM → answer with validated citations. */
-export async function generateAnswer(
-  question: string,
-  evidence: Hit[],
-  provider: LLMProvider = new DeepSeekProvider(),
-): Promise<AnswerResult> {
-  const started = Date.now();
+/** Build the grounded-answer prompt (shared by CLI, eval and the web API). */
+export function buildPrompt(question: string, evidence: Hit[]): { system: string; user: string } {
   const evidenceBlock = evidence
     .map(
       (h, i) =>
@@ -38,7 +34,17 @@ export async function generateAnswer(
     '4. Answer in the same language as the question.';
 
   const user = `Evidence:\n${evidenceBlock}\n\nQuestion: ${question}\n\nAnswer:`;
+  return { system, user };
+}
 
+/** Grounded answer generation: evidence → LLM → answer with validated citations. */
+export async function generateAnswer(
+  question: string,
+  evidence: Hit[],
+  provider: LLMProvider = new DeepSeekProvider(),
+): Promise<AnswerResult> {
+  const started = Date.now();
+  const { system, user } = buildPrompt(question, evidence);
   const res = await provider.chat([
     { role: 'system', content: system },
     { role: 'user', content: user },

@@ -1,11 +1,11 @@
-import { getDb } from './storage/db.js';
-import { indexRepository } from './indexing/indexer.js';
-import { hybridSearch } from './retrieval/search.js';
-import { rewriteQuestion } from './retrieval/rewrite.js';
-import { generateAnswer } from './answer.js';
-import { resolveRepo, removeRepo } from './repo.js';
-import { runEval } from './eval.js';
-import { getConfig } from './config.js';
+import { getDb } from './storage/db';
+import { indexRepository } from './indexing/indexer';
+import { hybridSearch } from './retrieval/search';
+import { rewriteQuestion } from './retrieval/rewrite';
+import { generateAnswer } from './answer';
+import { resolveRepo, removeRepo } from './repo';
+import { runEval } from './eval';
+import { getConfig } from './config';
 
 function usage(): never {
   console.log(

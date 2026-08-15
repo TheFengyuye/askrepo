@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getConfig } from '../config.js';
+import { getConfig } from '../config';
 
 /**
  * M1 storage: SQLite via Node's built-in `node:sqlite` (zero install).
@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS questions (
   answer TEXT NOT NULL,
   citations TEXT NOT NULL DEFAULT '[]',
   latency_ms INTEGER,
+  model TEXT,
+  rating SMALLINT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
@@ -68,5 +70,13 @@ export function getDb(): DatabaseSync {
   db = new DatabaseSync(path.join(cfg.dataDir, 'askrepo.db'));
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // Lightweight migrations for databases created before later schema changes.
+  const qCols = db.prepare('PRAGMA table_info(questions)').all() as { name: string }[];
+  if (!qCols.some((c) => c.name === 'model')) {
+    db.exec('ALTER TABLE questions ADD COLUMN model TEXT');
+  }
+  if (!qCols.some((c) => c.name === 'rating')) {
+    db.exec('ALTER TABLE questions ADD COLUMN rating SMALLINT');
+  }
   return db;
 }

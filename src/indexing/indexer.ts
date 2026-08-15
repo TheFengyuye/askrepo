@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { getDb } from '../storage/db.js';
-import { getConfig } from '../config.js';
-import { ensureCloned, repoNameFromUrl } from './clone.js';
-import { isSkippableDir, languageOf, shouldIndexFile } from './filter.js';
-import { chunkFile } from './chunk.js';
-import { embedTexts } from './embed.js';
+import { getDb } from '../storage/db';
+import { getConfig } from '../config';
+import { ensureCloned, repoNameFromUrl } from './clone';
+import { isSkippableDir, languageOf, shouldIndexFile } from './filter';
+import { chunkFile } from './chunk';
+import { embedTexts } from './embed';
 
 export interface IndexResult {
   fileCount: number;

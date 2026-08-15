@@ -1,5 +1,5 @@
-import { getDb } from '../storage/db.js';
-import { embedTexts } from '../indexing/embed.js';
+import { getDb } from '../storage/db';
+import { embedTexts } from '../indexing/embed';
 
 export interface Hit {
   chunkId: number;

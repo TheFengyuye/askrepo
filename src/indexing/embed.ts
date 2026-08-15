@@ -1,5 +1,5 @@
 import { pipeline, env } from '@huggingface/transformers';
-import { getConfig } from '../config.js';
+import { getConfig } from '../config';
 
 /**
  * Local embedding via transformers.js (ONNX runtime, CPU).

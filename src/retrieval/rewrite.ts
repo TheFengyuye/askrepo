@@ -1,4 +1,4 @@
-import { DeepSeekProvider } from '../llm/deepseek.js';
+import { DeepSeekProvider } from '../llm/deepseek';
 
 const provider = new DeepSeekProvider();
 

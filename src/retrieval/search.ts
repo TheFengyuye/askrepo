@@ -1,5 +1,5 @@
-import { getDb } from '../storage/db.js';
-import { vectorSearch, fillPaths, type Hit } from './vectors.js';
+import { getDb } from '../storage/db';
+import { vectorSearch, fillPaths, type Hit } from './vectors';
 
 /**
  * Hybrid retrieval: BM25-style keyword recall (SQLite FTS5) + vector recall,
@@ -106,10 +106,24 @@ export function keywordSearch(repoId: number, question: string, topK: number, ke
 export interface HybridOptions {
   /** Query-rewritten keywords (English symbols/terms) — enables FTS on Chinese questions. */
   keywords?: string;
-  /** Max chunks allowed per file in the final list. Default 2. */
+  /** Max chunks allowed per file in the final list. Default 3. */
   maxPerFile?: number;
   /** Boost chunks whose symbol/path matches rewritten tokens. Default true. */
   symbolBoost?: boolean;
+}
+
+/** Extract precise identifiers from the raw question (e.g. `res.json`, `createServer`). */
+function questionIdentifiers(question: string): string[] {
+  const ids = question.match(/[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)+|[A-Za-z_$][\w$]{3,}/g) ?? [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    const lower = id.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    out.push(lower);
+  }
+  return out.slice(0, 12);
 }
 
 /** Vector + keyword, RRF-fused, file-diversity-capped. Returns top-K hits with paths filled. */
@@ -119,7 +133,7 @@ export async function hybridSearch(
   topK = 8,
   opts: HybridOptions = {},
 ): Promise<Hit[]> {
-  const { keywords, maxPerFile = 2, symbolBoost = true } = opts;
+  const { keywords, maxPerFile = 3, symbolBoost = true } = opts;
   const vec = await vectorSearch(repoId, question, topK * 3);
   const kw = keywordSearch(repoId, question, topK * 5, keywords);
 
@@ -153,6 +167,17 @@ export async function hybridSearch(
   };
   addList(vec, 1);
   addList(kw, 1.2);
+
+  // Literal-identifier boost: chunks containing an exact identifier from the
+  // RAW question (e.g. `res.json`) get a strong bump. Rewritten keywords can
+  // be too generic ("json" also matches res.format), but the raw symbol is precise.
+  const rawIds = questionIdentifiers(question);
+  for (const entry of fused.values()) {
+    const h = entry.hit;
+    const lower = h.content.toLowerCase();
+    const matched = rawIds.filter((id) => lower.includes(id));
+    if (matched.length > 0) entry.rrf += 0.6 * matched.length;
+  }
 
   if (symbolBoost && keywords) {
     const kws = tokenize(keywords);

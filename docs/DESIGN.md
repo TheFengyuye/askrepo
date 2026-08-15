@@ -358,8 +358,8 @@ askrepo/
 | 仓库 | 命中率 (top-8) | 说明 |
 |---|---|---|
 | expressjs/express (v5) | **10/10 = 100%** | golden 校准到 v5 仓库内可回答的问题（v5 将 router/query/404 拆到外部 npm 包，仓库 `lib/` 仅 6 个文件） |
+| AskRepo 自身（dogfood） | **8/8 = 100%** | 自索引自评测，「用 AskRepo 理解 AskRepo」 |
 | samples/demo-lib（本地冒烟） | **4/4 = 100%** | 最小验证 |
-| AskRepo 自身（dogfood） | 待验证 | 第三个验收仓库 |
 | vitejs/vite（中型 TS） | 待验证 | 2457 文件大仓库 |
 
 ### 检索质量调优历程（真实踩坑，简历素材）

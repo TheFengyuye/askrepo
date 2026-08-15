@@ -46,7 +46,7 @@ export function getConfig(): Config {
     deepseekModel: env.DEEPSEEK_MODEL ?? 'deepseek-chat',
     embeddingModel: env.EMBEDDING_MODEL ?? 'Xenova/bge-m3',
     hfEndpoint: env.HF_ENDPOINT ?? 'https://huggingface.co',
-    dataDir: path.resolve(process.cwd(), env.DATA_DIR ?? './data'),
+    dataDir: path.resolve(/* turbopackIgnore: true */ process.cwd(), env.DATA_DIR ?? './data'),
     maxRepoMb: Number(env.MAX_REPO_MB ?? 200),
   };
 }

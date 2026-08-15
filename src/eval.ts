@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import { resolveRepo } from './repo.js';
-import { hybridSearch } from './retrieval/search.js';
-import { rewriteQuestion } from './retrieval/rewrite.js';
-import { generateAnswer } from './answer.js';
+import { resolveRepo } from './repo';
+import { hybridSearch } from './retrieval/search';
+import { rewriteQuestion } from './retrieval/rewrite';
+import { generateAnswer } from './answer';
 
 export interface GoldenItem {
   question: string;
