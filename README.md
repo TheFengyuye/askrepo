@@ -96,5 +96,5 @@ TypeScript 全栈 · Next.js 16 (Turbopack) · SQLite/FTS5 · tree-sitter (WASM)
 - [x] M1 CLI 最小闭环 + 检索质量评测
 - [x] M2 Next.js Web 产品化（SSE 流式 / 文件查看器 / 反馈）
 - [x] M3 深度：代码图谱 / 混合检索 RRF / Agent 多跳 / 增量索引
-- [ ] M3 余项：反馈→golden 集沉淀、PostgreSQL+pgvector 迁移
-- [ ] M4：CI / 演示视频 / 开源发布
+- [x] M4 打磨：CI / 评测数字 / Docker / [开源发布](https://github.com/TheFengyuye/askrepo)
+- [ ] 演示视频录制 · PostgreSQL+pgvector 迁移

@@ -403,3 +403,14 @@ askrepo/
 - **驼峰拆分 norm 列**：FTS 增 `norm` 列（`printAstToDoc` → `print ast to doc`），查询 `ast`/`doc` 能匹配驼峰符号——修 camelCase 断层
 - 索引时跳过 test/examples/fixtures 等目录（prettier 7380→704 文件，索引快一个量级）
 - 评测集改写缓存（同题同关键词），消除单次运行内的非确定性
+
+## 17. M4 状态（打磨发布）
+
+- [x] **README**：特性 / 架构图 / 快速开始 / 评测表 / Docker / 路线图
+- [x] **评测数字**：`docs/EVAL.md`（`npm run eval:all` 自动生成；express 100% / askrepo 100% / demo-lib 100% / prettier 60–80%）
+- [x] **Docker**：Dockerfile（多阶段构建）+ docker-compose.yml（data volume + 模型缓存 volume）——本机无 Docker，未实测
+- [x] **CI**：GitHub Actions（typecheck + build + CLI smoke），push 触发，已通过
+- [x] **开源发布**：https://github.com/TheFengyuye/askrepo （公开仓库，12 commits，CI 绿）
+- [x] **演示脚本**：`docs/DEMO.md`（录屏用，约 3 分钟）
+- [ ] 演示视频录制（用户侧）
+- [ ] PostgreSQL + pgvector 迁移（存储层已抽象；M4 后按需进行）
