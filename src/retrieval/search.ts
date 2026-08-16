@@ -282,12 +282,20 @@ function applyBoosts(
   pathMap: Map<number, string>,
 ): void {
   // Literal-identifier boost: chunks containing an exact identifier from the
-  // RAW question (e.g. `res.json`) get a strong bump.
+  // RAW question (e.g. `res.json`) get a strong bump. Dotted identifiers are
+  // matched at word boundaries so `res.json` does NOT match `res.jsonp`.
   const rawIds = questionIdentifiers(question);
+  const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matchId = (content: string, id: string): boolean => {
+    if (id.includes('.')) {
+      return new RegExp(`(?<![\\w$.])${escapeReg(id)}(?![\\w$])`).test(content);
+    }
+    return content.includes(id);
+  };
   for (const entry of fused.values()) {
     const h = entry.hit;
     const lower = h.content.toLowerCase();
-    const matched = rawIds.filter((id) => lower.includes(id));
+    const matched = rawIds.filter((id) => matchId(lower, id));
     if (matched.length > 0) entry.rrf += 0.6 * matched.length;
   }
 
