@@ -9,6 +9,7 @@ interface DonePayload {
   evidence: EvidenceRef[];
   questionId: number;
   latencyMs: number;
+  trace?: { hop: number; action: string; detail: string }[];
 }
 
 export default function Chat({ repoId, repoName }: { repoId: number; repoName: string }) {
@@ -16,6 +17,8 @@ export default function Chat({ repoId, repoName }: { repoId: number; repoName: s
   const [answer, setAnswer] = useState('');
   const [citations, setCitations] = useState<Citation[]>([]);
   const [evidence, setEvidence] = useState<EvidenceRef[]>([]);
+  const [trace, setTrace] = useState<NonNullable<DonePayload['trace']>>([]);
+  const [showTrace, setShowTrace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [questionId, setQuestionId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
@@ -29,6 +32,8 @@ export default function Chat({ repoId, repoName }: { repoId: number; repoName: s
     setAnswer('');
     setCitations([]);
     setEvidence([]);
+    setTrace([]);
+    setShowTrace(false);
     setQuestionId(null);
     setFeedback(null);
     const ac = new AbortController();
@@ -64,6 +69,7 @@ export default function Chat({ repoId, repoName }: { repoId: number; repoName: s
             setCitations(done.citations);
             setEvidence(done.evidence);
             setQuestionId(done.questionId);
+            if (done.trace && done.trace.length > 0) setTrace(done.trace);
           } else if (payload.type === 'error') {
             setAnswer((prev) => `${prev}\n\n[错误] ${payload.message}`);
           }
@@ -142,6 +148,27 @@ export default function Chat({ repoId, repoName }: { repoId: number; repoName: s
       {answer && (
         <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
           <AnswerRenderer text={answer} citations={citations} onCite={openCitation} />
+
+          {trace.length > 0 && (
+            <div className="mt-4 border-t border-slate-800 pt-3">
+              <button
+                onClick={() => setShowTrace((v) => !v)}
+                className="mb-1 text-xs text-slate-400 hover:text-white"
+              >
+                {showTrace ? '▾' : '▸'} 检索过程（Agent {trace.length} 跳）
+              </button>
+              {showTrace && (
+                <div className="space-y-1">
+                  {trace.map((t, i) => (
+                    <div key={i} className="rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-300">
+                      hop {t.hop} · {t.action}
+                      <span className="ml-2 text-slate-500">{t.detail.slice(0, 140)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {citations.length > 0 && (
             <div className="mt-4 border-t border-slate-800 pt-3">
