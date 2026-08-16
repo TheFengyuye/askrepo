@@ -360,7 +360,7 @@ askrepo/
 | expressjs/express (v5) | **10/10 = 100%** | golden 校准到 v5 仓库内可回答的问题（v5 将 router/query/404 拆到外部 npm 包，仓库 `lib/` 仅 6 个文件） |
 | AskRepo 自身（dogfood） | **8/8 = 100%** | 自索引自评测，「用 AskRepo 理解 AskRepo」 |
 | samples/demo-lib（本地冒烟） | **4/4 = 100%** | 最小验证 |
-| prettier/prettier（中型 TS） | 待验证 | 替代 vite：vite 2457 文件在 CPU-only 环境嵌入过慢（2h 仅 93 文件），prettier ~250 文件更贴合「中型」定位且速度可控 |
+| prettier/prettier（中型 TS） | **60–80%（均值 ~70%）** | 改写器非确定性导致波动；桶文件/入口类问题最硬（详见下方调优） |
 
 > 备注：vite 的教训直接指向 M3 的**增量索引**——当前 `add` 是全量重建，中断即丢失进度。这是已知产品缺陷，M3 必修。
 
@@ -389,12 +389,17 @@ askrepo/
 - [x] **图谱检索路径**（第三路召回）：`graphSearch` 从命中符号沿边 1 跳找回调用者/被调者，按行号区间解析到定义 chunk。验证：问「handle 调用了什么」能带回 `createApplication`（调用者）。
 - [x] **符号感知两轮检索**（伪相关反馈）：`expandKeywordsWithSymbols` 把首轮命中文件的图谱符号追加为关键词再检索——桥接自然语言与真实代码标识符（"格式化核心流程" → coreFormat/printToDoc → src/main/core.js）。
 - [x] **Agent 多跳检索**（确定性版）：`agenticRetrieval` 沿调用链最多 3 跳扩查，返回 trace 证据链（API done 事件透出）。
-- [ ] 增量索引（git fetch + 只重建变更文件）——下一步
+- [x] **增量索引**：`add` 重跑时 `git pull` + sha256 对比，只重建变更/新增文件，删除失效数据（demo-lib 重索引 0.8s）。
+- [x] **索引进程外置**：`/api/repos` 改为 spawn 子进程跑 CLI（`node --import tsx cli.ts add`），web 包不再打包 web-tree-sitter（Turbopack 无法打包其 CJS/WASM 形状），索引与请求处理隔离。
 - [ ] 反馈 → golden set 评测集沉淀
 - [ ] LLM 判定版 agent（决定「继续扩查 vs 直接回答」）——计划中
+- [ ] PostgreSQL + pgvector 迁移（存储层已抽象，换实现不换接口）
 
 ### 检索调优补充（M3 期间）
 - 修正 aux 路径正则前导斜杠 bug（`/test/` 匹配不到根目录 `test/`，改 `(^|\/)...\/`）
 - 关键词路径排除 docs/ 与配置文件（package.json/tsconfig.json/`.xxxrc`）——它们用通用 token 霸榜
-- 路径段/文件名主干精确匹配强加权（`builders/`、`multiparser.js`、`core.js`），救回桶文件
+- 路径段/文件名主干精确匹配强加权 + 目录 index.* 额外加分（独立叠加，非 else-if）——救回桶文件
+- **路径候选注入**：桶文件内容太薄进不了 FTS 池 → 按「关键词命中路径段」注入候选（index.* 优先、每文件 1 chunk、每 token ≤5 文件）——prettier builders/printers 类问题翻绿
+- **驼峰拆分 norm 列**：FTS 增 `norm` 列（`printAstToDoc` → `print ast to doc`），查询 `ast`/`doc` 能匹配驼峰符号——修 camelCase 断层
 - 索引时跳过 test/examples/fixtures 等目录（prettier 7380→704 文件，索引快一个量级）
+- 评测集改写缓存（同题同关键词），消除单次运行内的非确定性
