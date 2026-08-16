@@ -2,6 +2,7 @@ import { getDb } from '../storage/db';
 import { vectorSearch, fillPaths, type Hit } from './vectors';
 import { graphSearch } from './graph';
 import { expandKeywordsWithSymbols } from './expand';
+import { normText } from '../indexing/norm';
 
 /**
  * Hybrid retrieval: BM25-style keyword recall (SQLite FTS5) + vector recall,
@@ -98,7 +99,7 @@ export function keywordSearch(repoId: number, question: string, topK: number, ke
 
   const scored = pool
     .map((r) => {
-      const lower = r.content.toLowerCase();
+      const lower = normText(r.content);
       let matched = 0;
       let sum = 0;
       for (const t of tokens) {
@@ -111,7 +112,7 @@ export function keywordSearch(repoId: number, question: string, topK: number, ke
     })
     .sort((a, b) => b.score - a.score);
 
-  return scored.slice(0, topK).map((s) => ({
+  const out = scored.slice(0, topK).map((s) => ({
     chunkId: s.r.chunk_id,
     fileId: s.r.file_id,
     path: s.r.path,
@@ -121,6 +122,47 @@ export function keywordSearch(repoId: number, question: string, topK: number, ke
     symbol: s.r.symbol,
     score: s.score,
   }));
+
+  // Path-based candidates: barrel files (index.js/printers.js/…) have little
+  // content, so they never match FTS. Their PATH carries the meaning — inject
+  // chunks from files whose path contains a keyword as a segment or basename.
+  // index.* files of matching dirs are preferred (the dir's entry point).
+  const seenIds = new Set(out.map((h) => h.chunkId));
+  const escLike = (t: string) => t.replace(/[%_]/g, '\\$&');
+  for (const t of tokens) {
+    const rows = db
+      .prepare(
+        `SELECT f.id AS fid, f.path, c.id AS chunk_id, c.content, c.start_line, c.end_line, c.symbol
+         FROM files f JOIN chunks c ON c.file_id = f.id
+         WHERE f.repo_id = ? AND (f.path LIKE ? ESCAPE '\\' OR f.path LIKE ? ESCAPE '\\')
+         ORDER BY (f.path LIKE '%/index.%') DESC, f.id, c.id
+         LIMIT 60`,
+      )
+      .all(repoId, `%/${escLike(t)}/%`, `%/${escLike(t)}.%`) as any[];
+    let injected = 0;
+    const seenFiles = new Set<number>();
+    for (const r of rows) {
+      if (seenFiles.has(r.fid)) continue; // one chunk per file
+      seenFiles.add(r.fid);
+      if (seenIds.has(r.chunk_id) || isKeywordAux(r.path)) continue;
+      seenIds.add(r.chunk_id);
+      out.push({
+        chunkId: r.chunk_id,
+        fileId: r.fid,
+        path: r.path,
+        startLine: r.start_line,
+        endLine: r.end_line,
+        content: r.content,
+        symbol: r.symbol,
+        score: 20,
+      });
+      injected++;
+      if (injected >= 5) break;
+      if (out.length >= topK * 2) break;
+    }
+    if (out.length >= topK * 2) break;
+  }
+  return out;
 }
 
 export interface HybridOptions {
@@ -219,7 +261,7 @@ export async function hybridSearch(
     );
     if (syms.length > 0) {
       const kw2 = keywordSearch(repoId, question, topK * 5, `${keywords ?? ''} ${syms.join(' ')}`);
-      addList(kw2, 1.2);
+      addList(kw2, 1.0);
       applyBoosts(fused, question, `${keywords ?? ''} ${syms.join(' ')}`, symbolBoost, pathMap);
       graph = graphSearch(repoId, [...pass1.slice(0, 4), ...kw2.slice(0, 4)], topK * 3);
       addList(graph, 0.9);
@@ -266,10 +308,13 @@ function applyBoosts(
       for (const t of kws) {
         // Exact path-segment match (handles barrel files like document/builders/index.js).
         if (segments.includes(t)) boost += 1.5;
+        // Dir-index bonus: keyword matches the parent dir AND this is the dir's index.*
+        // (independent of the segment match above — stacks to 3.0 for dir/index files)
+        if (baseStem === 'index' && segments.slice(0, -1).includes(t)) boost += 1.5;
         // Exact basename-stem match (handles core.js, multiparser.js, printers.js).
-        else if (baseStem === t && !GENERIC_STEMS.has(t)) boost += 1.5;
+        if (baseStem === t && !GENERIC_STEMS.has(t)) boost += 1.5;
         // Symbol-name containment.
-        else if (h.symbol && h.symbol.toLowerCase().includes(t)) boost += 0.35;
+        if (h.symbol && h.symbol.toLowerCase().includes(t)) boost += 0.35;
       }
       entry.rrf += boost;
     }

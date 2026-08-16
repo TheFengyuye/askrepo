@@ -381,4 +381,20 @@ askrepo/
 - [x] SSE 全链路验证：中文问题 → 改写 → 混合检索 → 流式回答 → 引用解析（含 `[file:start-end]` 区间格式）→ 前端可点击查看源码
 - [x] 反馈闭环入库（questions.rating + feedback 表）
 - 简化决策：M2 索引用**进程内异步任务**（`src/server/queue.ts`），BullMQ+Redis 推迟到 M3（多 worker/跨进程时再上）
-- 已知待办：索引进度前端不可见（无轮询）；增量索引（M3）；PostgreSQL 迁移（M3）
+- 已知待办：索引进度前端不可见（无轮询）；增量索引；PostgreSQL 迁移
+
+## 16. M3 状态（深度）
+
+- [x] **tree-sitter 代码图谱**（WASM，零原生构建）：`web-tree-sitter@0.22` + `tree-sitter-wasms` 语法包；`src/graph/extract.ts` 提取符号（函数/类/方法 + 行号）与边（调用/导入），存 `symbols`/`symbol_edges` 表。踩坑：tree-sitter-wasms 的 grammar 与 web-tree-sitter 0.26 ABI 不兼容，需配 0.22.x。
+- [x] **图谱检索路径**（第三路召回）：`graphSearch` 从命中符号沿边 1 跳找回调用者/被调者，按行号区间解析到定义 chunk。验证：问「handle 调用了什么」能带回 `createApplication`（调用者）。
+- [x] **符号感知两轮检索**（伪相关反馈）：`expandKeywordsWithSymbols` 把首轮命中文件的图谱符号追加为关键词再检索——桥接自然语言与真实代码标识符（"格式化核心流程" → coreFormat/printToDoc → src/main/core.js）。
+- [x] **Agent 多跳检索**（确定性版）：`agenticRetrieval` 沿调用链最多 3 跳扩查，返回 trace 证据链（API done 事件透出）。
+- [ ] 增量索引（git fetch + 只重建变更文件）——下一步
+- [ ] 反馈 → golden set 评测集沉淀
+- [ ] LLM 判定版 agent（决定「继续扩查 vs 直接回答」）——计划中
+
+### 检索调优补充（M3 期间）
+- 修正 aux 路径正则前导斜杠 bug（`/test/` 匹配不到根目录 `test/`，改 `(^|\/)...\/`）
+- 关键词路径排除 docs/ 与配置文件（package.json/tsconfig.json/`.xxxrc`）——它们用通用 token 霸榜
+- 路径段/文件名主干精确匹配强加权（`builders/`、`multiparser.js`、`core.js`），救回桶文件
+- 索引时跳过 test/examples/fixtures 等目录（prettier 7380→704 文件，索引快一个量级）

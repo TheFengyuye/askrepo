@@ -19,9 +19,9 @@ await fillPaths(repo.id, vec);
 console.log('— vector top 10 —');
 vec.forEach((h, i) => console.log(`  ${i + 1}. ${h.path}:${h.startLine}  (${h.score.toFixed(3)})`));
 
-const kw = keywordSearch(repo.id, question, 10, keywords);
+const kw = keywordSearch(repo.id, question, 20, keywords);
 await fillPaths(repo.id, kw);
-console.log('\n— keyword top 10 (IDF coverage) —');
+console.log('\n— keyword top 20 (IDF coverage) —');
 kw.forEach((h, i) => console.log(`  ${i + 1}. ${h.path}:${h.startLine}  (${h.score.toFixed(2)})`));
 
 // Raw bm25 ranking over a large pool, to see where implementation files sit.

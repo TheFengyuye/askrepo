@@ -9,6 +9,8 @@ const provider = new DeepSeekProvider();
  * so a pure-Chinese question produces zero keyword tokens.
  */
 export async function rewriteQuestion(question: string): Promise<string> {
+  // temperature 0 gave stable but too-generic keywords; 0.2 trades slight
+  // nondeterminism for much better recall on terse codebases (prettier 30% → 60%).
   const res = await provider.chat([
     {
       role: 'system',

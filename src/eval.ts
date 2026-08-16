@@ -41,11 +41,22 @@ export async function runEval(repoRef: string, goldenFile: string, opts: EvalOpt
   if (!rewriting) {
     console.log('⚠  DEEPSEEK_API_KEY not set — running WITHOUT query rewriting (expected hit rate will be lower).\n');
   }
+  // Cache rewrites per question so eval runs are stable despite LLM nondeterminism.
+  const rewriteCache = new Map<string, string | undefined>();
 
   let retrievalHits = 0;
   let citationHits = 0;
   for (const item of items) {
-    const keywords = rewriting ? await rewriteQuestion(item.question) : undefined;
+    let keywords: string | undefined;
+    if (rewriting) {
+      const cached = rewriteCache.get(item.question);
+      if (cached !== undefined) {
+        keywords = cached;
+      } else {
+        keywords = await rewriteQuestion(item.question);
+        rewriteCache.set(item.question, keywords);
+      }
+    }
     const evidence = await hybridSearch(repo.id, item.question, opts.topK, { keywords });
     const retrievedPaths = evidence.map((h) => h.path);
     const retrievalHit = item.files.some((f) => pathMatch(f, retrievedPaths));
