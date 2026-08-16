@@ -1,0 +1,16 @@
+# ── Syntax: https://docs.docker.com/compose/compose-file/ ──
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data               # 索引数据 + SQLite 持久化
+      - askrepo-model-cache:/root/.cache # bge-m3 模型缓存（避免重复下载）
+    env_file: .env
+    environment:
+      - DATA_DIR=/app/data
+    restart: unless-stopped
+
+volumes:
+  askrepo-model-cache:
