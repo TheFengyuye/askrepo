@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/storage/db';
 import { getConfig } from '@/config';
 import { rewriteQuestion } from '@/retrieval/rewrite';
-import { hybridSearch } from '@/retrieval/search';
+import { agenticRetrieval } from '@/agent/loop';
 import { buildPrompt, parseCitations } from '@/answer';
 import { DeepSeekProvider } from '@/llm/deepseek';
 
@@ -44,7 +44,7 @@ export async function POST(req: Request): Promise<Response> {
       try {
         const keywords = await rewriteQuestion(question);
         send({ type: 'keywords', keywords });
-        const evidence = await hybridSearch(repoId, question, 8, { keywords });
+        const { hits: evidence, trace } = await agenticRetrieval(repoId, question, keywords, { maxHops: 3 });
         const { system, user } = buildPrompt(question, evidence);
         const provider = new DeepSeekProvider();
         let full = '';
@@ -68,6 +68,7 @@ export async function POST(req: Request): Promise<Response> {
           citations,
           questionId: Number(info.lastInsertRowid),
           latencyMs,
+          trace,
           evidence: evidence.map((e) => ({ path: e.path, startLine: e.startLine, endLine: e.endLine })),
         });
       } catch (err) {

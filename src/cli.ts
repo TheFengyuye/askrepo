@@ -1,6 +1,7 @@
 import { getDb } from './storage/db';
 import { indexRepository } from './indexing/indexer';
 import { hybridSearch } from './retrieval/search';
+import { agenticRetrieval } from './agent/loop';
 import { rewriteQuestion } from './retrieval/rewrite';
 import { generateAnswer } from './answer';
 import { resolveRepo, removeRepo } from './repo';
@@ -67,7 +68,10 @@ async function main(): Promise<void> {
       }
       console.log(`\nQ: ${question}\n`);
       const keywords = await rewriteQuestion(question);
-      const evidence = await hybridSearch(repo.id, question, 8, { keywords });
+      const { hits: evidence, trace } = await agenticRetrieval(repo.id, question, keywords, { maxHops: 3 });
+      if (trace.length > 0) {
+        console.log(`(检索过程: ${trace.map((t) => `hop${t.hop} ${t.action}`).join(' → ')})`);
+      }
       const { answer, citations, latencyMs } = await generateAnswer(question, evidence);
       console.log(answer);
       console.log(`\n— cited ${citations.length} grounded locations (${latencyMs}ms)`);
