@@ -7,6 +7,7 @@ import { ensureCloned, repoNameFromUrl } from './clone';
 import { isSkippableDir, languageOf, shouldIndexFile } from './filter';
 import { chunkFile } from './chunk';
 import { embedTexts } from './embed';
+import { extractGraph } from '../graph/extract';
 
 export interface IndexResult {
   fileCount: number;
@@ -86,9 +87,16 @@ export async function indexRepository(url: string): Promise<IndexResult> {
       'INSERT INTO chunks (repo_id, file_id, content, start_line, end_line, symbol, embedding) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     const insertFts = db.prepare('INSERT INTO chunks_fts (rowid, content) VALUES (?, ?)');
+    const insertSymbol = db.prepare(
+      'INSERT INTO symbols (repo_id, file_id, name, kind, line, end_line) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    const insertEdge = db.prepare(
+      'INSERT INTO symbol_edges (repo_id, source_name, target_name, kind) VALUES (?, ?, ?, ?)',
+    );
 
     let fileCount = 0;
     let chunkCount = 0;
+    let symbolCount = 0;
     let pending: {
       fileId: number;
       content: string;
@@ -133,10 +141,23 @@ export async function indexRepository(url: string): Promise<IndexResult> {
           symbol: ch.symbol,
         });
       }
+
+      // M3: code-graph extraction (symbols + call/import edges) via tree-sitter.
+      const graph = await extractGraph(f.relPath, raw);
+      for (const s of graph.symbols) {
+        insertSymbol.run(repoId, fileId, s.name, s.kind, s.line, s.endLine);
+        symbolCount++;
+      }
+      for (const e of graph.edges) {
+        insertEdge.run(repoId, e.sourceName, e.targetName, e.kind);
+      }
+
       fileCount++;
       if (pending.length >= 32) await flush();
       if (fileCount % 50 === 0) {
-        console.log(`  … ${fileCount}/${files.length} files, ${chunkCount} chunks embedded`);
+        console.log(
+          `  … ${fileCount}/${files.length} files, ${chunkCount} chunks, ${symbolCount} symbols`,
+        );
       }
     }
     await flush();

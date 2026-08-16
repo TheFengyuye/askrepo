@@ -1,5 +1,5 @@
 [
-  { "question": "prettier 的入口文件是哪个？", "files": ["src/index.js"] },
+  { "question": "prettier 的入口文件是哪个？", "files": ["src/index.js", "src/index.cjs"] },
   { "question": "CLI 命令的入口在哪里？", "files": ["src/cli/index.js"] },
   { "question": "格式化核心流程（core）在哪个文件？", "files": ["src/main/core.js"] },
   { "question": "AST 转 doc 的逻辑在哪里？", "files": ["src/main/ast-to-doc.js"] },

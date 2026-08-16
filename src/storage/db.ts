@@ -48,6 +48,29 @@ CREATE INDEX IF NOT EXISTS idx_chunks_repo ON chunks (repo_id);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, tokenize='unicode61');
 
+-- M3 code graph: symbols (functions/classes/methods) + call/import edges.
+CREATE TABLE IF NOT EXISTS symbols (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+  file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  line INTEGER NOT NULL,
+  end_line INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_symbols_repo_name ON symbols (repo_id, name);
+CREATE INDEX IF NOT EXISTS idx_symbols_repo_file ON symbols (repo_id, file_id);
+
+CREATE TABLE IF NOT EXISTS symbol_edges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+  source_name TEXT NOT NULL,
+  target_name TEXT NOT NULL,
+  kind TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_edges_repo_source ON symbol_edges (repo_id, source_name);
+CREATE INDEX IF NOT EXISTS idx_edges_repo_target ON symbol_edges (repo_id, target_name);
+
 CREATE TABLE IF NOT EXISTS questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   repo_id INTEGER NOT NULL,

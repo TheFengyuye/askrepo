@@ -1,5 +1,7 @@
 import { getDb } from '../storage/db';
 import { vectorSearch, fillPaths, type Hit } from './vectors';
+import { graphSearch } from './graph';
+import { expandKeywordsWithSymbols } from './expand';
 
 /**
  * Hybrid retrieval: BM25-style keyword recall (SQLite FTS5) + vector recall,
@@ -33,12 +35,30 @@ export function tokenize(text: string): string[] {
  * common ones (router, app), so terse implementation files — which contain the
  * distinctive symbols — beat verbose files that only match common words.
  *
- * Auxiliary files (tests/examples/benchmarks/changelogs) are EXCLUDED from this
- * path: the answer to "where is X implemented" never lives in a test. The vector
- * path still covers them (at reduced weight) for questions genuinely about tests.
+ * Auxiliary files (tests/examples/benchmarks/changelogs/docs/config files) are
+ * EXCLUDED from this path: the answer to "where is X implemented" never lives in
+ * a test or a config file, and package.json/tsconfig.json/docs flood generic
+ * keyword matches with common tokens (module, main, path, config). The vector
+ * path still covers them (at reduced weight) for genuinely docs-oriented questions.
  */
-const KW_AUX_RE = /(\/test\/|\/tests\/|\/__tests__\/|\/spec\/|\/examples?\/|\/benchmarks?\/|\/fixtures?\/)/;
-const KW_AUX_FILES = new Set(['History.md', 'CONTRIBUTING.md', 'CHANGELOG.md']);
+const KW_AUX_RE =
+  /(^|\/)(test|tests|__tests__|spec|e2e|examples?|benchmarks?|fixtures?|docs?)\//;
+const KW_AUX_FILES = new Set([
+  'History.md',
+  'CONTRIBUTING.md',
+  'CHANGELOG.md',
+  'package.json',
+  'tsconfig.json',
+  'jsconfig.json',
+]);
+
+function isKeywordAux(path: string): boolean {
+  if (KW_AUX_RE.test(path) || KW_AUX_FILES.has(path)) return true;
+  const base = path.split('/').pop() ?? '';
+  if (/\.config\.(js|ts|mjs|cjs|json)$/.test(base)) return true;
+  if (/^\.[a-z-]+rc(\.(js|json|ts))?$/.test(base)) return true;
+  return false;
+}
 
 export function keywordSearch(repoId: number, question: string, topK: number, keywords?: string): Hit[] {
   const db = getDb();
@@ -61,7 +81,7 @@ export function keywordSearch(repoId: number, question: string, topK: number, ke
     .all(orQuery, repoId) as any[];
 
   const pool = rows.filter(
-    (r) => !KW_AUX_RE.test(r.path as string) && !KW_AUX_FILES.has(r.path as string),
+    (r) => !isKeywordAux(r.path as string),
   );
 
   // IDF per token over the whole repo.
@@ -110,6 +130,8 @@ export interface HybridOptions {
   maxPerFile?: number;
   /** Boost chunks whose symbol/path matches rewritten tokens. Default true. */
   symbolBoost?: boolean;
+  /** Second keyword pass with graph-symbol expansion (pseudo-relevance feedback). Default true. */
+  symbolExpand?: boolean;
 }
 
 /** Extract precise identifiers from the raw question (e.g. `res.json`, `createServer`). */
@@ -126,19 +148,17 @@ function questionIdentifiers(question: string): string[] {
   return out.slice(0, 12);
 }
 
-/** Vector + keyword, RRF-fused, file-diversity-capped. Returns top-K hits with paths filled. */
+/** Vector + keyword (+graph), RRF-fused, symbol-expanded, file-diversity-capped. */
 export async function hybridSearch(
   repoId: number,
   question: string,
   topK = 8,
   opts: HybridOptions = {},
 ): Promise<Hit[]> {
-  const { keywords, maxPerFile = 3, symbolBoost = true } = opts;
-  const vec = await vectorSearch(repoId, question, topK * 3);
-  const kw = keywordSearch(repoId, question, topK * 5, keywords);
+  const { keywords, maxPerFile = 3, symbolBoost = true, symbolExpand = true } = opts;
+  const db = getDb();
 
   // Path map is needed early for the auxiliary-file penalty.
-  const db = getDb();
   const pathMap = new Map<number, string>();
   for (const row of db.prepare('SELECT id, path FROM files WHERE repo_id = ?').all(repoId) as any[]) {
     pathMap.set(row.id, row.path);
@@ -149,8 +169,7 @@ export async function hybridSearch(
    * answer lives in implementation code, not tests/examples/benchmarks/docs.
    * These paths get a lower fusion weight (a retrieval prior, not a golden-set hack).
    */
-  const AUX_RE =
-    /(\/test\/|\/tests\/|\/__tests__\/|\/spec\/|\/examples?\/|\/benchmarks?\/|\/docs\/|\/fixtures?\/)/;
+  const AUX_RE = /(^|\/)(test|tests|__tests__|spec|e2e|examples?|benchmarks?|fixtures?|docs?)\//;
   const AUX_FILES = new Set(['History.md', 'CONTRIBUTING.md']);
   const auxFactor = (fileId: number): number => {
     const p = pathMap.get(fileId) ?? '';
@@ -165,12 +184,63 @@ export async function hybridSearch(
       fused.set(h.chunkId, entry);
     });
   };
+
+  const rank = () => {
+    const sorted = [...fused.values()].sort((a, b) => b.rrf - a.rrf);
+    const picked: { hit: Hit; rrf: number }[] = [];
+    const perFile = new Map<number, number>();
+    for (const s of sorted) {
+      const n = perFile.get(s.hit.fileId) ?? 0;
+      if (n >= maxPerFile) continue;
+      perFile.set(s.hit.fileId, n + 1);
+      picked.push(s);
+      if (picked.length >= topK) break;
+    }
+    return picked.map((s) => s.hit);
+  };
+
+  // ── Pass 1: vector + keyword + graph ───────────────────────────────
+  const vec = await vectorSearch(repoId, question, topK * 3);
+  let kw = keywordSearch(repoId, question, topK * 5, keywords);
   addList(vec, 1);
   addList(kw, 1.2);
+  let graph = graphSearch(repoId, [...vec.slice(0, 4), ...kw.slice(0, 4)], topK * 3);
+  addList(graph, 0.9);
 
+  applyBoosts(fused, question, keywords, symbolBoost, pathMap);
+
+  let pass1 = rank();
+
+  // ── Pass 2: pseudo-relevance feedback via graph symbols ────────────
+  if (symbolExpand) {
+    const baseTokens = new Set(tokenize(keywords ?? ''));
+    const syms = expandKeywordsWithSymbols(repoId, pass1).filter(
+      (s) => !baseTokens.has(s.toLowerCase()),
+    );
+    if (syms.length > 0) {
+      const kw2 = keywordSearch(repoId, question, topK * 5, `${keywords ?? ''} ${syms.join(' ')}`);
+      addList(kw2, 1.2);
+      applyBoosts(fused, question, `${keywords ?? ''} ${syms.join(' ')}`, symbolBoost, pathMap);
+      graph = graphSearch(repoId, [...pass1.slice(0, 4), ...kw2.slice(0, 4)], topK * 3);
+      addList(graph, 0.9);
+      pass1 = rank();
+    }
+  }
+
+  await fillPaths(repoId, pass1);
+  return pass1;
+}
+
+/** Shared rank boosts: literal identifiers, path segments, basename stems, symbols. */
+function applyBoosts(
+  fused: Map<number, { hit: Hit; rrf: number }>,
+  question: string,
+  keywords: string | undefined,
+  symbolBoost: boolean,
+  pathMap: Map<number, string>,
+): void {
   // Literal-identifier boost: chunks containing an exact identifier from the
-  // RAW question (e.g. `res.json`) get a strong bump. Rewritten keywords can
-  // be too generic ("json" also matches res.format), but the raw symbol is precise.
+  // RAW question (e.g. `res.json`) get a strong bump.
   const rawIds = questionIdentifiers(question);
   for (const entry of fused.values()) {
     const h = entry.hit;
@@ -181,25 +251,27 @@ export async function hybridSearch(
 
   if (symbolBoost && keywords) {
     const kws = tokenize(keywords);
+    // Generic basename stems that would over-match (index.js/main.js/utils.js…).
+    const GENERIC_STEMS = new Set([
+      'index', 'main', 'utils', 'util', 'lib', 'types', 'type', 'config',
+      'options', 'option', 'common', 'shared', 'test',
+    ]);
     for (const entry of fused.values()) {
       const h = entry.hit;
-      const haystack = `${h.symbol ?? ''} ${pathMap.get(h.fileId) ?? ''}`.toLowerCase();
-      if (kws.some((t) => haystack.includes(t))) entry.rrf += 0.35;
+      const p = (pathMap.get(h.fileId) ?? '').toLowerCase();
+      const segments = p.split('/');
+      const base = segments[segments.length - 1] ?? '';
+      const baseStem = base.replace(/\.[a-z0-9]+$/, '');
+      let boost = 0;
+      for (const t of kws) {
+        // Exact path-segment match (handles barrel files like document/builders/index.js).
+        if (segments.includes(t)) boost += 1.5;
+        // Exact basename-stem match (handles core.js, multiparser.js, printers.js).
+        else if (baseStem === t && !GENERIC_STEMS.has(t)) boost += 1.5;
+        // Symbol-name containment.
+        else if (h.symbol && h.symbol.toLowerCase().includes(t)) boost += 0.35;
+      }
+      entry.rrf += boost;
     }
   }
-
-  const sorted = [...fused.values()].sort((a, b) => b.rrf - a.rrf);
-  const picked: { hit: Hit; rrf: number }[] = [];
-  const perFile = new Map<number, number>();
-  for (const s of sorted) {
-    const n = perFile.get(s.hit.fileId) ?? 0;
-    if (n >= maxPerFile) continue;
-    perFile.set(s.hit.fileId, n + 1);
-    picked.push(s);
-    if (picked.length >= topK) break;
-  }
-
-  const hits = picked.map((s) => s.hit);
-  await fillPaths(repoId, hits);
-  return hits;
 }

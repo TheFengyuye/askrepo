@@ -15,7 +15,9 @@
     "@huggingface/transformers": "^4.2.0",
     "next": "^16.3.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.22.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
